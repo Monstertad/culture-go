@@ -1,3 +1,12 @@
+// users 컬렉션 — Firebase Auth UID를 문서 ID로 사용
+export interface AppUser {
+  id: string          // Firebase Auth UID
+  email: string
+  name: string
+  role: 'customer' | 'merchant'
+  createdAt: Date
+}
+
 // monsters 컬렉션 — 상인이 등록, status='approved'가 되면 유저 지도에 표시
 export interface Monster {
   id: string
