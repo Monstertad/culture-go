@@ -17,11 +17,12 @@ import type { Monster } from '../../../types'
 const DUMMY_MONSTER: Monster = {
   id: 'monster_demo_1',
   shopId: 'shop_sungsimdang',
+  shopName: '성심당 본점',
   name: '튀소용',
   category: '빵',
   lat: 36.3278,
   lng: 127.4275,
-  status: 'approved', // 🛠️ [빨간줄 해결] 'active'를 규칙에 맞는 'approved'로 수정!
+  status: 'approved',
   imageUrl: 'https://em-content.zobj.net/source/apple/391/doughnut_1f369.png',
 }
 
@@ -39,6 +40,7 @@ export default function ArCatchPage() {
         setMonster({
           id: parsed.id,
           shopId: parsed.shopId || 'shop_sungsimdang',
+          shopName: parsed.shopName || '',
           name: parsed.name,
           category: parsed.category,
           lat: parsed.lat || 36.3278,

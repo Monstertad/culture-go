@@ -11,7 +11,11 @@ export interface AppUser {
 export interface Monster {
   id: string
   shopId: string
+  shopName: string
   name: string
+  description?: string
+  attribute?: string
+  rarity?: 'common' | 'rare' | 'epic' | 'legendary'
   category: string
   lat: number
   lng: number
