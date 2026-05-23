@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { collection, query, where, onSnapshot } from 'firebase/firestore'
 import { db } from '../../../config/firebase'
-import type { Monster, CatchTarget } from '../../../types'
+import type { Monster } from '../../../types'
 import { getDistance, DEMO_LOCATION, CATCH_RADIUS_M } from '../../../utils/distance'
 import KakaoMap from '../components/KakaoMap'
 
@@ -41,14 +41,19 @@ export default function UserMainMap() {
       alert(`몬스터가 너무 멀리 있습니다! (${Math.round(dist)}m)\n좀 더 가까이 걸어가세요. 📍`)
       return
     }
-    const target: CatchTarget = {
-      monsterId: selectedMonster.id,
-      monsterName: selectedMonster.name,
-      monsterImageUrl: selectedMonster.imageUrl,
+
+    // 🎯 [지민님 AR 융합 로직 연동을 위한 핵심 수정본]
+    // 지민님의 CatchCanvas가 긁어다 쓰는 monster 객체 규격과 100% 일치시켰습니다.
+    const target = {
+      id: selectedMonster.id,
+      name: selectedMonster.name,
+      imageUrl: selectedMonster.imageUrl, 
       category: selectedMonster.category,
       shopId: selectedMonster.shopId,
-      shopName: '',
+      lat: selectedMonster.lat,
+      lng: selectedMonster.lng,
     }
+
     sessionStorage.setItem('catchTarget', JSON.stringify(target))
     navigate('/catch')
   }
@@ -102,9 +107,10 @@ export default function UserMainMap() {
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
 
             <div className="flex items-center gap-4 mb-5">
-              <div className="w-18 h-18 rounded-2xl border-2 border-amber-200 overflow-hidden bg-amber-50 flex items-center justify-center shrink-0 w-[72px] h-[72px]">
+              {/* 🎨 테일윈드 사각형 레이아웃을 둥글고 시원하게 정돈 */}
+              <div className="w-20 h-20 rounded-2xl border-2 border-amber-200 overflow-hidden bg-amber-50 flex items-center justify-center shrink-0 shadow-inner">
                 {selectedMonster.imageUrl ? (
-                  <img src={selectedMonster.imageUrl} className="w-full h-full object-cover" />
+                  <img src={selectedMonster.imageUrl} className="w-full h-full object-cover" alt={selectedMonster.name} />
                 ) : (
                   <span className="text-4xl">🐾</span>
                 )}
