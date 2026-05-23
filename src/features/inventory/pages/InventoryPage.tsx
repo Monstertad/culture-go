@@ -76,6 +76,7 @@ export default function InventoryPage() {
     try {
       await addDoc(collection(db, 'coupons'), {
         userId,
+        monsterId: item.monsterId,
         shopId: item.shopId,
         shopName: item.shopName || '상점',
         title: `${item.monsterName} 융합 쿠폰 — 특별 할인`,

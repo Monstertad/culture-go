@@ -52,6 +52,7 @@ export interface UserInventory {
 export interface Coupon {
   id: string
   userId: string
+  monsterId?: string   // 융합 쿠폰: 대상 Monster 문서 ID
   shopId: string
   shopName: string
   title: string
