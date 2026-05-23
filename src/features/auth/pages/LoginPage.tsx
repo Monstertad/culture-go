@@ -59,16 +59,13 @@ export default function LoginPage() {
     try {
       const result = await signInWithPopup(auth, new GoogleAuthProvider())
       const snap = await getDoc(doc(db, 'users', result.user.uid))
-      if (snap.exists()) {
-        // 기존 유저 → 역할별 홈으로
-        navigate('/', { replace: true })
-      } else {
+      if (!snap.exists()) {
         // 신규 Google 유저 → 역할 선택 필요
         navigate('/signup', { replace: true })
       }
+      // 기존 유저는 AuthContext가 user를 set하면 GuestRoute가 자동으로 /map 또는 /merchant로 이동
     } catch (err) {
       const code = (err as { code?: string }).code ?? ''
-      // 팝업 닫기는 에러로 표시하지 않음
       if (code !== 'auth/popup-closed-by-user') setError(getErrorMsg(code))
     } finally {
       setLoading(false)
