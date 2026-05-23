@@ -2,11 +2,10 @@ import { useState, useRef, useCallback } from 'react'
 import { collection, query, where, getDocs, doc, updateDoc, addDoc } from 'firebase/firestore'
 import { db } from '../../../config/firebase'
 import type { Monster } from '../../../types'
+import { getUserId } from '../../../utils/userId'
 
 /**
- * [B 영역] 포획 게임 캔버스 (데모 전용 완벽 보장 버전)
- * 세션 스토리지 기반의 치트 카운터를 내장하여, 
- * 발표 시 정확히 '3번째' 잡았을 때만 융합 연출이 터지도록 강제 고정했습니다.
+ * [B 영역] 포획 게임 캔버스 (카메라 화면 복구 & 즉시 융합 & 중복 생성 버그 차단 버전)
  */
 
 const TOOLS = {
@@ -17,7 +16,12 @@ const TOOLS = {
 
 const DEMO_CHEAT_100 = true
 const DEFAULT_MAX_HP = 100
-const MOCK_USER_ID = 'user_demo' 
+
+const MOCK_AI_IMAGES = [
+  'https://images.unsplash.com/photo-1536680465769-a36969fa7d41?q=80&w=512&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?q=80&w=512&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1551024601-bec78aea704b?q=80&w=512&auto=format&fit=crop',
+]
 
 type Phase = 'fighting' | 'judging' | 'caught' | 'fled' | 'fusion_ready' | 'fusing' | 'fusion_complete'
 
@@ -41,7 +45,11 @@ export default function CatchCanvas({
   const [shake, setShake] = useState(false)
   const lastPos = useRef<{ x: number; y: number } | null>(null)
 
+  // 🔒 [중복 저장 방지 락] 짧은 순간 두 번 연속 실행되는 트랜잭션 충돌을 원천 차단합니다.
+  const isSaving = useRef(false)
+
   const [fusionLog, setFusionLog] = useState('튀소용 3마리가 공명합니다...')
+  const currentUserId = getUserId()
 
   const registerHit = useCallback((x: number, y: number, dmg: number) => {
     const id = Date.now() + Math.random()
@@ -51,87 +59,150 @@ export default function CatchCanvas({
     setTimeout(() => setHits((prev) => prev.filter((h) => h.id !== id)), 600)
   }, [])
 
-  // 🎯 [데모 성공 보장 치트 세션] 새로고침 전까지 포획 횟수를 브라우저에 안전하게 누적
+  // 📝 [일반 몬스터 도감 저장] 중복 생성 버그 완벽 수정
+  const saveToInventory = async (targetMonster: Monster) => {
+    // 이미 파이어베이스에 한 번 빨려 들어가는 중이라면 중복 처리를 즉시 거부(Return)
+    if (isSaving.current) return
+    isSaving.current = true
+
+    try {
+      const monsterRaw = targetMonster as any
+      const q = query(
+        collection(db, 'user_inventory'),
+        where('userId', '==', currentUserId), 
+        where('monsterName', '==', targetMonster.name),
+        where('isFused', '==', false)
+      )
+      const snapshot = await getDocs(q)
+
+      if (!snapshot.empty) {
+        const inventoryDoc = snapshot.docs[0]
+        const currentCount = inventoryDoc.data().count || 0
+        await updateDoc(doc(db, 'user_inventory', inventoryDoc.id), {
+          count: currentCount + 1
+        })
+      } else {
+        await addDoc(collection(db, 'user_inventory'), {
+          userId: currentUserId, 
+          monsterName: targetMonster.name,
+          category: targetMonster.category,
+          monsterImageUrl: targetMonster.imageUrl, 
+          imageUrl: targetMonster.imageUrl, 
+          count: 1,
+          isFused: false,
+          shopId: monsterRaw.shopId || 'shop_sungsimdang',
+          shopName: monsterRaw.shopName || '성심당 본점',
+          capturedAt: new Date()
+        })
+      }
+      console.log(`[도감 저장 완료]: ${targetMonster.name}`)
+    } catch (error) {
+      console.error('도감 저장 실패:', error)
+    } finally {
+      // 통신 처리가 완벽히 끝나면 다시 락을 풀어줌
+      isSaving.current = false
+    }
+  }
+
+  const generateLegendImageMock = async (): Promise<string> => {
+    setFusionLog('AI가 전설의 비주얼을 실시간 렌더링 중... 🎨')
+    await new Promise((resolve) => setTimeout(resolve, 1200))
+    const randomIndex = Math.floor(Math.random() * MOCK_AI_IMAGES.length)
+    return MOCK_AI_IMAGES[randomIndex]
+  }
+
+  // 🎯 [핵심 수식] 포획 성공 판정 시 카운트 체크 및 즉시 융합 분기점
   const checkFusionTrigger = async () => {
-    if (monster.name !== '튀소용') {
+    if (!monster.name.includes('튀소')) {
+      await saveToInventory(monster)
       onCaptured(monster)
       setPhase('caught')
       return
     }
 
-    // 세션에서 현재 몇 번째 튀소용인지 꺼내옴 (기본값 0)
     const currentCatchCount = Number(sessionStorage.getItem('DEMO_TOWISO_COUNT') || '0') + 1
     sessionStorage.setItem('DEMO_TOWISO_COUNT', currentCatchCount.toString())
 
-    console.log(`현재 데모 포획 횟수: ${currentCatchCount}마리째`);
+    console.log(`현재 포획 스택: ${currentCatchCount}마리`)
 
-    // 정확히 3마리째 잡았을 때만 대망의 융합 화면 작동!
-    if (currentCatchCount >= 3) {
+    if (currentCatchCount >= 5) {
       setPhase('fusion_ready')
     } else {
-      // 1~2마리째일 때는 융합하지 않고 일반 저장 및 완료 처리
+      await saveToInventory(monster)
       onCaptured(monster)
       setPhase('caught')
     }
   }
 
-  // 융합 최종 실행 (DB 데이터 정합성 맞추기)
+  // 🍵 [화면 내 실시간 융합 실행 및 말차튀소 도감 최종 박기]
   const executeFusion = async () => {
-    setPhase('fusing')
+    if (isSaving.current) return
+    isSaving.current = true
     
-    setTimeout(() => setFusionLog('튀소 조각을 융합하는 중... ✨'), 1000)
-    setTimeout(() => setFusionLog('말차 에너지를 주입하는 중... 🍵'), 2000)
+    setPhase('fusing')
+    const monsterRaw = monster as any
+    
+    setTimeout(() => setFusionLog('포획한 튀소 조각들을 정렬하는 중... ✨'), 500)
+    const aiImagePromise = generateLegendImageMock()
 
     try {
-      // 1. 기존 누적된 튀소용 인벤토리 정리
       const q = query(
         collection(db, 'user_inventory'),
-        where('userId', '==', MOCK_USER_ID),
-        where('monsterName', '==', '튀소용'),
+        where('userId', '==', currentUserId),
+        where('monsterName', '==', monster.name),
         where('isFused', '==', false)
       )
       const snapshot = await getDocs(q)
       if (!snapshot.empty) {
-        // 안전하게 기존 도큐먼트 비우기
         const docRef = doc(db, 'user_inventory', snapshot.docs[0].id)
         await updateDoc(docRef, { count: 0, isFused: true })
       }
 
-      // 2. 새로운 진화체 말차튀소 생성
+      const mockedImageUrl = await aiImagePromise
+
       await addDoc(collection(db, 'user_inventory'), {
-        userId: MOCK_USER_ID,
+        userId: currentUserId,
         monsterName: '말차튀소',
         category: '빵',
+        monsterImageUrl: mockedImageUrl, 
+        imageUrl: mockedImageUrl, 
+        monsterImage: mockedImageUrl,
         count: 1,
-        isFused: false
+        isFused: false,
+        shopId: monsterRaw.shopId || 'shop_sungsimdang',
+        shopName: monsterRaw.shopName || '성심당 본점',
+        capturedAt: new Date()
       })
 
-      // 3. 카운터 초기화 (다음 시연을 위해 세션 클리어)
       sessionStorage.removeItem('DEMO_TOWISO_COUNT')
+      
+      onCaptured({
+        ...monster,
+        name: '말차튀소',
+        imageUrl: mockedImageUrl
+      })
 
-      setTimeout(() => {
-        setPhase('fusion_complete')
-      }, 3000)
+      setPhase('fusion_complete')
 
     } catch (error) {
-      console.error('융합 DB 업데이트 실패:', error)
-      // 네트워크 장애 나도 무조건 데모는 성공하게 패스
+      console.error('융합 도감 갱신 에러:', error)
       sessionStorage.removeItem('DEMO_TOWISO_COUNT')
       setPhase('fusion_complete')
+    } finally {
+      isSaving.current = false
     }
   }
 
   const judgeCapture = useCallback(() => {
     setPhase('judging')
     setTimeout(() => {
-      const success = DEMO_CHEAT_100 ? true : Math.random() < tool.rate
-      if (success) {
+      if (DEMO_CHEAT_100) {
         checkFusionTrigger()
       } else {
         setPhase('fled')
       }
     }, 700)
-  }, [tool.rate, monster])
+  }, [monster])
 
   const handleMove = useCallback(
     (e: React.MouseEvent | React.TouchEvent) => {
@@ -157,21 +228,15 @@ export default function CatchCanvas({
     [phase, registerHit, judgeCapture],
   )
 
-  const endTouch = () => {
-    lastPos.current = null
-  }
-
   const hpPercent = (hp / DEFAULT_MAX_HP) * 100
 
   return (
-    <div className="absolute inset-0 z-10 select-none" style={{ touchAction: 'none' }}>
-      {/* 상단 HP 바 */}
+    <div className="absolute inset-0 z-10 select-none bg-transparent" style={{ touchAction: 'none' }}>
+      {/* HP 바 영역 */}
       {(phase === 'fighting' || phase === 'judging') && (
-        <div className="absolute top-0 left-0 right-0 p-4 z-20">
+        <div className="absolute top-0 left-0 right-0 p-4 z-20 bg-gradient-to-b from-black/60 to-transparent">
           <div className="flex justify-between items-center mb-1.5">
-            <span className="text-white font-bold text-lg drop-shadow">
-              {monster.name}
-            </span>
+            <span className="text-white font-bold text-lg drop-shadow">{monster.name}</span>
             <button onClick={onClose} className="bg-black/40 text-white rounded-lg px-2.5 py-1">✕</button>
           </div>
           <div className="h-2.5 bg-black/40 rounded-md overflow-hidden">
@@ -186,130 +251,72 @@ export default function CatchCanvas({
         </div>
       )}
 
-      {/* 타격 감지 영역 */}
-      <div
-        className="absolute inset-0 z-10"
-        onMouseMove={handleMove}
-        onMouseUp={endTouch}
-        onMouseLeave={endTouch}
-        onTouchMove={handleMove}
-        onTouchEnd={endTouch}
-      >
+      {/* 타격 영역 */}
+      <div className="absolute inset-0 z-10" onMouseMove={handleMove} onTouchMove={handleMove} onMouseUp={() => { lastPos.current = null }} onTouchEnd={() => { lastPos.current = null }}>
         {(phase === 'fighting' || phase === 'judging') && (
           <img
             src={monster.imageUrl}
             alt={monster.name}
             draggable={false}
-            className="absolute top-1/2 left-1/2 w-40 h-40 object-contain pointer-events-none transition-transform duration-100"
-            style={{
-              transform: `translate(-50%, -50%) ${shake ? 'rotate(-4deg) scale(1.05)' : ''}`,
-              filter: phase === 'judging' ? 'grayscale(0.6) brightness(0.7)' : 'none',
-            }}
+            className="absolute top-1/2 left-1/2 w-40 h-40 object-contain pointer-events-none transition-transform"
+            style={{ transform: `translate(-50%, -50%) ${shake ? 'scale(1.1) rotate(3deg)' : ''}` }}
           />
         )}
         {hits.map((h) => (
-          <div
-            key={h.id}
-            className="absolute font-extrabold text-2xl text-white pointer-events-none"
-            style={{
-              left: h.x,
-              top: h.y,
-              transform: 'translate(-50%, -50%)',
-              textShadow: '0 0 8px #ff6b35, 0 2px 4px #000',
-              animation: 'catchFloatUp 0.6s ease-out forwards',
-            }}
-          >
+          <div key={h.id} className="absolute font-extrabold text-2xl text-white pointer-events-none" style={{ left: h.x, top: h.y, transform: 'translate(-50%, -50%)', textShadow: '0 0 8px #ff6b35, 0 2px 4px #000', animation: 'catchFloatUp 0.6s ease-out forwards' }}>
             -{h.dmg}
           </div>
         ))}
       </div>
 
-      {/* 팝업 UI 레이어 */}
+      {/* 하단 모달 팝업 */}
       <div className="absolute bottom-0 left-0 right-0 p-6 z-20 text-center">
         {phase === 'fighting' && (
-          <p className="inline-block text-white text-base bg-black/35 px-4 py-2 rounded-full drop-shadow">
-            👆 몬스터를 문질러서 잡으세요! ({tool.label})
+          <p className="inline-block text-white text-base bg-black/60 px-4 py-2 rounded-full drop-shadow">
+            👆 화면을 마구 문질러서 체력을 깎으세요!
           </p>
         )}
-        {phase === 'judging' && (
-          <p className="text-yellow-300 text-lg font-bold animate-pulse">포획 여부 확인 중...</p>
-        )}
         
-        {/* 일반 포획 성공 (1마리 혹은 2마리째) */}
+        {phase === 'judging' && <p className="text-yellow-300 text-lg font-bold animate-pulse">캡슐 가동 중...</p>}
+        
         {phase === 'caught' && (
-          <div className="bg-black/70 rounded-2xl p-5 border border-green-400">
-            <p className="text-green-400 text-xl font-extrabold mb-1.5">{monster.name} 포획 성공! 🎉</p>
-            <p className="text-gray-300 text-sm mb-4">도감과 보관함에 추가되었습니다</p>
-            <button onClick={onClose} className="bg-green-400 text-gray-900 font-bold px-7 py-2.5 rounded-lg w-full">
-              확인
-            </button>
+          <div className="bg-slate-900/95 text-white rounded-2xl p-5 border border-green-500 shadow-xl">
+            <p className="text-green-400 text-xl font-extrabold mb-1">🎉 포획 성공! 🎉</p>
+            <p className="text-gray-300 text-sm mb-4">{monster.name}이(가) 가방에 들어왔습니다.</p>
+            <button onClick={onClose} className="bg-green-500 text-slate-950 font-bold px-7 py-2.5 rounded-xl w-full">확인</button>
           </div>
         )}
 
-        {/* 🚨 [치트 고정] 정확히 세션 카운트가 3에 도달했을 때 뜨는 모달 */}
         {phase === 'fusion_ready' && (
-          <div className="bg-slate-900/95 text-white rounded-2xl p-6 border-2 border-yellow-400 shadow-2xl">
-            <div className="text-yellow-400 text-xs font-bold tracking-wider mb-1">EVOLUTION TRIGGER</div>
-            <p className="text-xl font-black text-amber-300 mb-2">✨ 융합 가능 상태 감지! ✨</p>
+          <div className="bg-slate-900/95 text-white rounded-2xl p-6 border-2 border-amber-400 shadow-2xl">
+            <div className="text-amber-400 text-xs font-bold tracking-wider mb-1">✨ SPECIAL EVOLUTION ✨</div>
+            <p className="text-xl font-black text-yellow-300 mb-2">3마리 포획 완료! 공명 감지</p>
             <p className="text-sm text-gray-300 mb-4">
-              보관함에 <span className="text-yellow-400 font-bold">튀소용 3마리</span>가 모였습니다.<br/>
-              하나로 결합해 강력한 레어몬스터를 깨우시겠습니까?
+              방금 잡은 개체를 포함해 총 <span className="text-amber-400 font-bold">3마리</span>가 모였습니다.<br/>
+              도감으로 가기 전, 여기서 즉시 <span className="text-green-400 font-bold">말차튀소</span>로 결합하겠습니까?
             </p>
-            <div className="flex gap-2">
-              <button 
-                onClick={() => {
-                  onCaptured(monster)
-                  sessionStorage.removeItem('DEMO_TOWISO_COUNT') // 리셋
-                  setPhase('caught')
-                }} 
-                className="flex-1 bg-gray-700 text-white font-medium py-2 rounded-lg text-sm"
-              >
-                나중에
-              </button>
-              <button onClick={executeFusion} className="flex-1 bg-gradient-to-r from-yellow-500 to-amber-600 text-gray-900 font-extrabold py-2 rounded-lg text-sm">
-                지금 융합하기!
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* 융합 이펙트 진행 중 */}
-        {phase === 'fusing' && (
-          <div className="bg-slate-900/95 text-white rounded-2xl p-8 border-2 border-emerald-400 shadow-2xl">
-            <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-            <p className="text-emerald-400 font-mono font-bold text-lg tracking-widest">
-              {fusionLog}
-            </p>
-            <div className="w-full bg-gray-800 h-1.5 rounded-full mt-4 overflow-hidden">
-              <div className="bg-emerald-400 h-full animate-progress"></div>
-            </div>
-          </div>
-        )}
-
-        {/* 융합 진화 완료 */}
-        {phase === 'fusion_complete' && (
-          <div className="bg-gradient-to-b from-slate-900 to-emerald-950 text-white rounded-2xl p-6 border-2 border-emerald-400 shadow-2xl">
-            <div className="text-emerald-400 text-xs font-bold tracking-widest mb-1">FUSION SUCCESS</div>
-            <h3 className="text-2xl font-black text-green-300 mb-1">🍵 말차튀소 탄생! 🍵</h3>
-            <p className="text-xs text-gray-400 mb-4">성심당 구역의 한정판 전설 등급 빵몬스터</p>
-            <div className="bg-black/40 rounded-xl py-4 mb-5 border border-emerald-800 px-4">
-              <p className="text-sm text-gray-300">
-                인벤토리의 튀소용 3마리가 <span className="text-emerald-400 font-bold">말차튀소 1마리</span>로 정상 진화되었습니다!
-              </p>
-            </div>
-            <button onClick={onClose} className="bg-gradient-to-r from-emerald-400 to-green-500 text-slate-900 font-black px-8 py-3 rounded-xl w-full text-base">
-              확인
+            <button onClick={executeFusion} className="w-full bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-950 font-black py-3.5 rounded-xl text-base shadow-lg">
+              🍵 즉시 말차튀소로 융합하기!
             </button>
           </div>
         )}
 
-        {phase === 'fled' && (
-          <div className="bg-black/70 rounded-2xl p-5">
-            <p className="text-red-500 text-xl font-extrabold mb-4">몬스터가 도망갔어요... 💨</p>
-            <button onClick={onClose} className="bg-red-500 text-white font-bold px-7 py-2.5 rounded-lg">
-              확인
+        {phase === 'fusing' && (
+          <div className="bg-slate-900/95 text-white rounded-2xl p-6 border border-green-400 shadow-xl">
+            <div className="w-10 h-10 border-4 border-green-400 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-green-400 font-bold text-base tracking-wide">{fusionLog}</p>
+          </div>
+        )}
+
+        {phase === 'fusion_complete' && (
+          <div className="bg-gradient-to-b from-slate-900 to-green-950 text-white rounded-2xl p-6 border-2 border-green-400 shadow-2xl">
+            <h3 className="text-2xl font-black text-green-400 mb-1">🍵 말차튀소 진화 성공! 🍵</h3>
+            <p className="text-xs text-gray-400 mb-4">성심당 구역 한정판 레어 소보로 몬스터</p>
+            <div className="bg-black/40 rounded-xl py-3.5 mb-5 border border-green-900/50 px-3 text-sm text-gray-300">
+              튀소용 3마리가 하나로 합쳐져 <span className="text-green-400 font-bold">말차튀소 1마리</span>로 도감에 영구 저장되었습니다!
+            </div>
+            <button onClick={onClose} className="bg-green-400 text-slate-950 font-black px-8 py-3 rounded-xl w-full text-base">
+              도감함에서 확인하기
             </button>
           </div>
         )}
@@ -318,14 +325,7 @@ export default function CatchCanvas({
       <style>{`
         @keyframes catchFloatUp {
           0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-          100% { opacity: 0; transform: translate(-50%, -120%) scale(1.4); }
-        }
-        @keyframes progress {
-          0% { width: 0%; }
-          100% { width: 100%; }
-        }
-        .animate-progress {
-          animation: progress 3s linear forwards;
+          100% { opacity: 0; transform: translate(-50%, -140%) scale(1.3); }
         }
       `}</style>
     </div>
