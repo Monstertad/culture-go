@@ -41,35 +41,40 @@ function RoleSelectStep({
 }) {
   return (
     <div className="flex flex-col h-full bg-white overflow-y-auto">
-      <header className="flex items-center gap-2 px-4 py-4 bg-yellow-400 shrink-0">
-        <Link to="/login" className="text-xl">←</Link>
-        <h1 className="font-black text-lg">회원가입</h1>
-      </header>
+      <div className="flex items-center gap-3 px-6 pt-12 pb-8 shrink-0">
+        <Link
+          to="/login"
+          className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+        >
+          ←
+        </Link>
+        <h1 className="text-xl font-black text-gray-900">회원가입</h1>
+      </div>
 
-      <div className="flex-1 flex flex-col px-6 pt-8 pb-8">
+      <div className="flex-1 px-6 pb-8 flex flex-col">
         {isGooglePending && (
-          <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-6">
+          <div className="flex items-center gap-2.5 bg-blue-50 border border-blue-100 rounded-2xl px-4 py-3 mb-6">
             <GoogleIcon />
             <p className="text-sm text-blue-700 font-medium">
-              Google 계정이 연결됐어요! 역할만 선택해주세요.
+              Google 계정 연결 완료! 역할만 선택해주세요.
             </p>
           </div>
         )}
 
-        <p className="text-2xl font-black text-center mb-1">어떤 계정으로</p>
-        <p className="text-2xl font-black text-center mb-8">가입하시겠어요?</p>
+        <p className="text-2xl font-black text-gray-900 mb-1">어떤 계정으로</p>
+        <p className="text-2xl font-black text-gray-900 mb-8">가입하시겠어요?</p>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           <button
             onClick={() => onSelect('customer')}
-            className="flex items-start gap-4 p-5 border-2 border-gray-200 rounded-2xl text-left hover:border-yellow-400 hover:bg-yellow-50 active:scale-95 transition-all group"
+            className="flex items-start gap-4 p-5 border-2 border-gray-100 rounded-2xl text-left hover:border-amber-300 hover:bg-amber-50 active:scale-[0.98] transition-all group"
           >
             <div className="text-4xl leading-none mt-0.5">🧑‍💼</div>
             <div>
-              <p className="font-black text-base group-hover:text-yellow-700">일반 고객</p>
-              <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+              <p className="font-black text-base text-gray-900 group-hover:text-amber-700">일반 고객</p>
+              <p className="text-sm text-gray-400 mt-1 leading-relaxed">
                 지도에서 몬스터를 포획하고,<br />
-                3마리를 모아 융합해 쿠폰을 받아요!
+                3마리를 모아 쿠폰을 받아요!
               </p>
               <div className="flex flex-wrap gap-1.5 mt-3">
                 {['🗺️ 지도 탐험', '🎯 몬스터 포획', '🎟️ 쿠폰 수집'].map((tag) => (
@@ -83,14 +88,14 @@ function RoleSelectStep({
 
           <button
             onClick={() => onSelect('merchant')}
-            className="flex items-start gap-4 p-5 border-2 border-gray-200 rounded-2xl text-left hover:border-yellow-400 hover:bg-yellow-50 active:scale-95 transition-all group"
+            className="flex items-start gap-4 p-5 border-2 border-gray-100 rounded-2xl text-left hover:border-amber-300 hover:bg-amber-50 active:scale-[0.98] transition-all group"
           >
             <div className="text-4xl leading-none mt-0.5">🏪</div>
             <div>
-              <p className="font-black text-base group-hover:text-yellow-700">상인 (가게 관리자)</p>
-              <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+              <p className="font-black text-base text-gray-900 group-hover:text-amber-700">상인 (가게 관리자)</p>
+              <p className="text-sm text-gray-400 mt-1 leading-relaxed">
                 내 가게에 몬스터를 등록하고,<br />
-                고객이 사용하는 쿠폰을 관리해요!
+                고객 쿠폰을 관리해요!
               </p>
               <div className="flex flex-wrap gap-1.5 mt-3">
                 {['🐾 몬스터 등록', '📊 쿠폰 통계', '📷 QR 스캔'].map((tag) => (
@@ -118,23 +123,16 @@ function InfoFormStep({
   onBack: () => void
 }) {
   const navigate = useNavigate()
-  const roleLabel = role === 'customer' ? '🧑‍💼 일반 고객' : '🏪 상인'
+  const roleLabel = role === 'customer' ? '일반 고객' : '상인'
 
-  // Google 가입 상태
   const [googleLoading, setGoogleLoading] = useState(false)
-
-  // 이메일 가입 상태
-  const [name, setName] = useState(
-    // Google 로그인이 이미 된 경우 displayName 자동 입력
-    isGooglePending ? (auth.currentUser?.displayName ?? '') : ''
-  )
+  const [name, setName] = useState(isGooglePending ? (auth.currentUser?.displayName ?? '') : '')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [emailLoading, setEmailLoading] = useState(false)
 
-  // ── Firestore 문서 저장 + 이동 ────────────────────────────────
   const saveUserAndNavigate = async (uid: string, userEmail: string, userName: string) => {
     const userData: Omit<AppUser, 'id' | 'createdAt'> & { createdAt: ReturnType<typeof serverTimestamp> } = {
       email: userEmail,
@@ -146,58 +144,42 @@ function InfoFormStep({
     navigate(role === 'merchant' ? '/merchant' : '/map', { replace: true })
   }
 
-  // ── Google 가입 ───────────────────────────────────────────────
   const handleGoogleSignUp = async () => {
     setError(null)
     setGoogleLoading(true)
     try {
       const existingUser = auth.currentUser
-
       if (existingUser) {
-        // LoginPage에서 Google 로그인 후 리다이렉트된 케이스
-        await saveUserAndNavigate(
-          existingUser.uid,
-          existingUser.email ?? '',
-          existingUser.displayName ?? '사용자',
-        )
+        await saveUserAndNavigate(existingUser.uid, existingUser.email ?? '', existingUser.displayName ?? '사용자')
       } else {
-        // 처음 Google 가입
         const result = await signInWithPopup(auth, new GoogleAuthProvider())
         const { uid, email: gEmail, displayName } = result.user
-
-        // 이미 가입된 Google 계정인지 확인
         const snap = await getDoc(doc(db, 'users', uid))
         if (snap.exists()) {
           navigate(snap.data().role === 'merchant' ? '/merchant' : '/map', { replace: true })
           return
         }
-
         await saveUserAndNavigate(uid, gEmail ?? '', displayName ?? '사용자')
       }
     } catch (err) {
       const code = (err as { code?: string }).code ?? ''
-      console.error('[Google SignUp]', code, err)
       if (code !== 'auth/popup-closed-by-user') setError(getErrorMsg(code))
     } finally {
       setGoogleLoading(false)
     }
   }
 
-  // ── 이메일 가입 ───────────────────────────────────────────────
   const handleEmailSignUp = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
-
     if (password !== confirm) { setError('비밀번호가 일치하지 않습니다.'); return }
     if (password.length < 6) { setError('비밀번호는 6자 이상이어야 합니다.'); return }
-
     setEmailLoading(true)
     try {
       const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, email, password)
       await saveUserAndNavigate(firebaseUser.uid, email, name)
     } catch (err) {
       const code = (err as { code?: string }).code ?? ''
-      console.error('[Email SignUp]', code, err)
       setError(getErrorMsg(code))
     } finally {
       setEmailLoading(false)
@@ -208,21 +190,25 @@ function InfoFormStep({
 
   return (
     <div className="flex flex-col h-full bg-white overflow-y-auto">
-      <header className="flex items-center gap-2 px-4 py-4 bg-yellow-400 shrink-0">
-        <button onClick={onBack} className="text-xl">←</button>
+      <div className="flex items-center gap-3 px-6 pt-12 pb-2 shrink-0">
+        <button
+          onClick={onBack}
+          className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+        >
+          ←
+        </button>
         <div>
-          <p className="text-xs font-medium text-yellow-800">{roleLabel}</p>
-          <h1 className="font-black text-lg leading-tight">정보 입력</h1>
+          <p className="text-xs text-amber-500 font-semibold">{roleLabel}</p>
+          <h1 className="text-xl font-black text-gray-900 leading-tight">정보 입력</h1>
         </div>
-      </header>
+      </div>
 
-      <div className="flex-1 flex flex-col px-6 pt-6 pb-8">
-        {/* Google 가입 버튼 */}
+      <div className="flex-1 px-6 pt-6 pb-8 flex flex-col gap-4">
         <button
           type="button"
           onClick={handleGoogleSignUp}
           disabled={isLoading}
-          className="flex items-center justify-center gap-2 w-full border-2 border-gray-200 rounded-2xl py-3.5 font-bold text-sm text-gray-700 hover:border-gray-300 hover:bg-gray-50 active:scale-95 disabled:opacity-50 transition-all"
+          className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-2xl border border-gray-200 bg-white font-semibold text-sm text-gray-700 hover:bg-gray-50 active:scale-[0.98] disabled:opacity-50 transition-all"
         >
           <GoogleIcon />
           {isGooglePending ? 'Google 계정으로 가입 완료하기' : 'Google로 가입하기'}
@@ -230,95 +216,82 @@ function InfoFormStep({
 
         {!isGooglePending && (
           <>
-            <div className="flex items-center gap-2 my-4">
+            <div className="flex items-center gap-3">
               <div className="flex-1 h-px bg-gray-100" />
               <span className="text-xs text-gray-400">또는 이메일로 가입</span>
               <div className="flex-1 h-px bg-gray-100" />
             </div>
 
-            <form onSubmit={handleEmailSignUp} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-bold text-gray-500">
-                  이름 {role === 'merchant' ? '/ 상호명' : ''}
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder={role === 'merchant' ? '상호명을 입력하세요' : '이름을 입력하세요'}
-                  required
-                  className="border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-bold text-gray-500">이메일</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="example@email.com"
-                  required
-                  autoComplete="email"
-                  className="border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-bold text-gray-500">비밀번호 (6자 이상)</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="비밀번호를 입력하세요"
-                  required
-                  autoComplete="new-password"
-                  className="border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-100"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-bold text-gray-500">비밀번호 확인</label>
-                <input
-                  type="password"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  placeholder="비밀번호를 다시 입력하세요"
-                  required
-                  autoComplete="new-password"
-                  className={`border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 ${
-                    confirm && password !== confirm
-                      ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
-                      : 'border-gray-200 focus:border-yellow-400 focus:ring-yellow-100'
-                  }`}
-                />
-                {confirm && password !== confirm && (
-                  <p className="text-xs text-red-500">비밀번호가 일치하지 않습니다.</p>
-                )}
-              </div>
+            <form onSubmit={handleEmailSignUp} className="flex flex-col gap-3">
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={role === 'merchant' ? '상호명을 입력하세요' : '이름을 입력하세요'}
+                required
+                className="w-full px-4 py-3.5 rounded-2xl bg-gray-50 border border-transparent text-sm placeholder-gray-400 focus:outline-none focus:border-amber-400 focus:bg-white transition-colors"
+              />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="이메일"
+                required
+                autoComplete="email"
+                className="w-full px-4 py-3.5 rounded-2xl bg-gray-50 border border-transparent text-sm placeholder-gray-400 focus:outline-none focus:border-amber-400 focus:bg-white transition-colors"
+              />
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="비밀번호 (6자 이상)"
+                required
+                autoComplete="new-password"
+                className="w-full px-4 py-3.5 rounded-2xl bg-gray-50 border border-transparent text-sm placeholder-gray-400 focus:outline-none focus:border-amber-400 focus:bg-white transition-colors"
+              />
+              <input
+                type="password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                placeholder="비밀번호 확인"
+                required
+                autoComplete="new-password"
+                className={`w-full px-4 py-3.5 rounded-2xl bg-gray-50 text-sm placeholder-gray-400 focus:outline-none focus:bg-white transition-colors border ${
+                  confirm && password !== confirm
+                    ? 'border-red-300 focus:border-red-400'
+                    : 'border-transparent focus:border-amber-400'
+                }`}
+              />
+              {confirm && password !== confirm && (
+                <p className="text-xs text-red-500 -mt-1 px-1">비밀번호가 일치하지 않습니다.</p>
+              )}
 
               {error && (
-                <p className="text-red-500 text-sm bg-red-50 rounded-xl px-4 py-3">{error}</p>
+                <div className="px-4 py-3 rounded-2xl bg-red-50 border border-red-100">
+                  <p className="text-sm text-red-500">{error}</p>
+                </div>
               )}
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="mt-1 bg-yellow-400 hover:bg-yellow-500 active:scale-95 disabled:opacity-50 transition-all text-black font-black text-base py-4 rounded-2xl shadow-md"
+                className="w-full py-4 rounded-2xl bg-amber-400 hover:bg-amber-500 active:scale-[0.98] disabled:opacity-50 font-bold text-gray-900 text-sm transition-all shadow-sm shadow-amber-200 mt-1"
               >
-                {emailLoading ? '가입 중...' : `${roleLabel} 가입하기`}
+                {emailLoading ? '가입 중...' : `${roleLabel}으로 가입하기`}
               </button>
             </form>
           </>
         )}
 
         {error && isGooglePending && (
-          <p className="text-red-500 text-sm bg-red-50 rounded-xl px-4 py-3 mt-4">{error}</p>
+          <div className="px-4 py-3 rounded-2xl bg-red-50 border border-red-100">
+            <p className="text-sm text-red-500">{error}</p>
+          </div>
         )}
 
-        <p className="text-center text-sm text-gray-400 mt-6">
+        <p className="text-center text-sm text-gray-400">
           이미 계정이 있으신가요?{' '}
-          <Link to="/login" className="text-yellow-500 font-bold">
+          <Link to="/login" className="text-amber-500 font-semibold">
             로그인
           </Link>
         </p>
@@ -330,8 +303,6 @@ function InfoFormStep({
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────
 export default function SignUpPage() {
   const [selectedRole, setSelectedRole] = useState<Role | null>(null)
-
-  // LoginPage에서 Google 로그인 후 /signup으로 리다이렉트된 케이스 감지
   const isGooglePending = !!auth.currentUser
 
   if (!selectedRole) {
