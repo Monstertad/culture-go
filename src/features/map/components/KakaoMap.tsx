@@ -103,16 +103,25 @@ export default function KakaoMap({ monsters, userLocation, onMonsterClick }: Pro
   // API 키 없으면 목록 폴백 (개발/데모 환경)
   if (!KAKAO_APP_KEY) {
     return (
-      <div className="w-full h-full bg-amber-50 flex flex-col">
-        <div className="flex-1 flex flex-col items-center justify-center gap-1 text-amber-700 pb-4">
-          <span className="text-5xl">🗺️</span>
-          <p className="font-bold text-sm mt-1">지도 미리보기</p>
-          <p className="text-xs text-gray-400">.env에 VITE_KAKAO_MAP_KEY 설정 시 실제 지도가 표시됩니다</p>
+      <div className="w-full h-full bg-amber-50 flex flex-col overflow-y-auto">
+        {/* 안내 배너 — 상단 고정, 작게 */}
+        <div className="flex items-center gap-2 px-4 py-3 bg-amber-100 border-b border-amber-200 shrink-0">
+          <span className="text-2xl">🗺️</span>
+          <div>
+            <p className="font-bold text-xs text-amber-800">지도 미리보기 모드</p>
+            <p className="text-xs text-amber-600">.env에 VITE_KAKAO_MAP_KEY 설정 시 실제 지도 표시</p>
+          </div>
         </div>
-        <div className="px-4 pb-4 flex flex-col gap-2">
-          <p className="text-xs font-bold text-gray-500">📍 근처 몬스터</p>
+
+        {/* 몬스터 목록 */}
+        <div className="px-4 pt-4 pb-4 flex flex-col gap-2">
+          <p className="text-xs font-bold text-gray-500 mb-1">📍 근처 몬스터</p>
           {monsters.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-4">등록된 몬스터가 없습니다.</p>
+            <div className="flex flex-col items-center gap-2 py-12 text-gray-400">
+              <span className="text-4xl">🐾</span>
+              <p className="text-sm">등록된 몬스터가 없습니다.</p>
+              <p className="text-xs">상인이 몬스터를 등록하면 여기에 표시됩니다.</p>
+            </div>
           ) : (
             monsters.map((m) => (
               <button

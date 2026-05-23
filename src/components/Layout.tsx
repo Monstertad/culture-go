@@ -34,9 +34,9 @@ export default function Layout({ children }: LayoutProps) {
   }
 
   return (
-    <div className="flex justify-center min-h-screen bg-gray-100">
-      <div className="relative w-full max-w-md min-h-screen bg-white flex flex-col overflow-hidden shadow-xl">
-        <div className="flex-1 overflow-hidden">{children}</div>
+    <div className="flex justify-center h-screen bg-gray-100">
+      <div className="relative w-full max-w-md h-screen bg-white flex flex-col overflow-hidden shadow-xl">
+        <div className="flex-1 overflow-hidden min-h-0">{children}</div>
 
         {!hideNav && user && (
           <nav className="flex items-stretch border-t border-gray-200 bg-white shrink-0">
