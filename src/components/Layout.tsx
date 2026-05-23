@@ -9,16 +9,52 @@ interface LayoutProps {
 }
 
 const CUSTOMER_NAV = [
-  { path: '/map', label: '지도', emoji: '🗺️' },
-  { path: '/inventory', label: '도감', emoji: '🎒' },
+  { path: '/map', label: '지도', icon: MapIcon },
+  { path: '/inventory', label: '도감', icon: BagIcon },
 ]
 
 const MERCHANT_NAV = [
-  { path: '/merchant', label: '대시보드', emoji: '🏪' },
+  { path: '/merchant', label: '대시보드', icon: ShopIcon },
 ]
 
-// 하단 내비게이션 + 로그아웃을 숨길 경로
 const HIDE_NAV_PATHS = ['/catch', '/login', '/signup']
+
+function MapIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path d="M9 3L3 6v15l6-3 6 3 6-3V3l-6 3-6-3z" stroke={active ? '#f59e0b' : '#9ca3af'} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M9 3v15M15 6v15" stroke={active ? '#f59e0b' : '#9ca3af'} strokeWidth="2" />
+    </svg>
+  )
+}
+
+function BagIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <rect x="2" y="7" width="20" height="15" rx="2" stroke={active ? '#f59e0b' : '#9ca3af'} strokeWidth="2" />
+      <path d="M16 7V5a4 4 0 0 0-8 0v2" stroke={active ? '#f59e0b' : '#9ca3af'} strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function ShopIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={active ? '#f59e0b' : '#9ca3af'} strokeWidth="2" strokeLinejoin="round" />
+      <polyline points="9 22 9 12 15 12 15 22" stroke={active ? '#f59e0b' : '#9ca3af'} strokeWidth="2" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function LogoutIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" />
+      <polyline points="16 17 21 12 16 7" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <line x1="21" y1="12" x2="9" y2="12" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+}
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
@@ -39,31 +75,34 @@ export default function Layout({ children }: LayoutProps) {
         <div className="flex-1 overflow-hidden min-h-0">{children}</div>
 
         {!hideNav && user && (
-          <nav className="flex items-stretch border-t border-gray-200 bg-white shrink-0">
-            {navItems.map(({ path, label, emoji }) => {
+          <nav className="flex bg-white shrink-0 border-t border-gray-100">
+            {navItems.map(({ path, label, icon: Icon }) => {
               const active = location.pathname === path
               return (
                 <Link
                   key={path}
                   to={path}
-                  className={`flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-xs font-medium transition-colors ${
-                    active ? 'text-yellow-500' : 'text-gray-400'
-                  }`}
+                  className="flex-1 flex flex-col items-center justify-center pt-2.5 pb-3 gap-1 relative"
                 >
-                  <span className="text-xl leading-none">{emoji}</span>
-                  <span>{label}</span>
+                  {active && (
+                    <span className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-amber-400 rounded-full" />
+                  )}
+                  <Icon active={active} />
+                  <span className={`text-xs font-medium ${active ? 'text-amber-500' : 'text-gray-400'}`}>
+                    {label}
+                  </span>
                 </Link>
               )
             })}
 
-            {/* 로그아웃 버튼 */}
             <button
               onClick={handleLogout}
-              className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-xs font-medium text-gray-400 hover:text-red-400 transition-colors"
-              title="로그아웃"
+              className="flex-1 flex flex-col items-center justify-center pt-2.5 pb-3 gap-1 group"
             >
-              <span className="text-xl leading-none">🚪</span>
-              <span>로그아웃</span>
+              <LogoutIcon />
+              <span className="text-xs font-medium text-gray-400 group-hover:text-red-400 transition-colors">
+                로그아웃
+              </span>
             </button>
           </nav>
         )}

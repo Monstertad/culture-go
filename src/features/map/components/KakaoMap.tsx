@@ -45,7 +45,7 @@ export default function KakaoMap({ monsters, userLocation, onMonsterClick }: Pro
       initMap()
     } else {
       const script = document.createElement('script')
-      script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_APP_KEY}&autoload=false`
+      script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_APP_KEY}&autoload=false&libraries=services`
       script.async = true
       script.onload = initMap
       script.onerror = () => {
