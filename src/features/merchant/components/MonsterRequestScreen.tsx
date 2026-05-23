@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../../config/firebase'
-import CouponRegisterScreen from './CouponRegisterScreen'
 
 interface MonsterResult {
   id: string
@@ -105,12 +104,11 @@ export default function MonsterRequestScreen({ shopId, shopName, category, lat, 
   const [keyword, setKeyword] = useState('')
   const [step, setStep]       = useState<Step>('idle')
   const [monster, setMonster] = useState<MonsterResult | null>(null)
-  const [showPopup, setShowPopup]               = useState(false)
-  const [showCouponRegister, setShowCouponRegister] = useState(false)
-  const [error, setError]     = useState('')
+  const [showPopup, setShowPopup] = useState(false)
+  const [error, setError]         = useState('')
 
   const handleGenerate = async () => {
-    setMonster(null); setShowPopup(false); setShowCouponRegister(false); setError('')
+    setMonster(null); setShowPopup(false); setError('')
 
     setStep('generating')
     const name        = buildName(menu, shopName)
@@ -158,26 +156,11 @@ export default function MonsterRequestScreen({ shopId, shopName, category, lat, 
   }
 
   const handleReset = () => {
-    setStep('idle'); setMonster(null)
-    setShowPopup(false); setShowCouponRegister(false)
+    setStep('idle'); setMonster(null); setShowPopup(false)
     setMenu(''); setFeature(''); setKeyword('')
   }
 
   const isLoading = (['generating', 'imaging', 'nuking', 'saving'] as Step[]).includes(step)
-
-  // 쿠폰 등록 화면으로 전환
-  if (showCouponRegister && monster) {
-    return (
-      <CouponRegisterScreen
-        monsterId={monster.id}
-        monsterName={monster.name}
-        monsterImageUrl={monster.imageUrl}
-        shopId={shopId}
-        shopName={shopName}
-        onComplete={handleReset}
-      />
-    )
-  }
 
   return (
     <div className="flex flex-col gap-5 p-5">
@@ -284,11 +267,8 @@ export default function MonsterRequestScreen({ shopId, shopName, category, lat, 
             </div>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={() => setShowCouponRegister(true)}
-              className="flex-1 bg-amber-400 text-black rounded-xl py-3 text-sm font-black"
-            >
-              🎫 쿠폰 등록하기
+            <button onClick={handleReset} className="flex-1 border border-gray-200 rounded-xl py-3 text-sm font-bold text-gray-600">
+              새 몬스터 등록
             </button>
             <button onClick={handleGenerate} className="flex-1 bg-purple-100 text-purple-700 rounded-xl py-3 text-sm font-bold">
               🔄 다시 생성
@@ -331,9 +311,9 @@ export default function MonsterRequestScreen({ shopId, shopName, category, lat, 
                 </span>
               </div>
               <p className="text-sm text-gray-600 leading-relaxed">{monster.description}</p>
-              <div className="bg-amber-50 rounded-xl px-4 py-3 flex items-center gap-2">
+              <div className="bg-blue-50 rounded-xl px-4 py-3 flex items-center gap-2">
                 <span className="text-lg">🎫</span>
-                <p className="text-xs text-amber-700 font-medium">다음 단계에서 쿠폰을 등록해보세요!</p>
+                <p className="text-xs text-blue-700 font-medium">쿠폰 등록 탭에서 이 몬스터에 쿠폰을 등록해보세요!</p>
               </div>
               <div className="flex gap-2 pb-2">
                 <button
@@ -343,7 +323,7 @@ export default function MonsterRequestScreen({ shopId, shopName, category, lat, 
                   🔄 다시 생성
                 </button>
                 <button
-                  onClick={() => { setShowPopup(false); setShowCouponRegister(true) }}
+                  onClick={handleReset}
                   className="flex-1 bg-amber-400 text-black rounded-xl py-3 text-sm font-black"
                 >
                   완료
