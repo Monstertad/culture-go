@@ -16,7 +16,7 @@ const FALLBACK_MONSTER: Monster = {
   lat: CNU_ENG_5.lat,
   lng: CNU_ENG_5.lng,
   status: 'approved',
-  imageUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=200',
+  imageUrl: '/monsters/mock.png',
 }
 
 export default function UserMainMap() {
