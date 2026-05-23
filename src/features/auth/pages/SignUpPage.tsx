@@ -11,10 +11,13 @@ const ERROR_MAP: Record<string, string> = {
   'auth/email-already-in-use': '이미 사용 중인 이메일입니다.',
   'auth/weak-password': '비밀번호는 6자 이상이어야 합니다.',
   'auth/invalid-email': '유효하지 않은 이메일 형식입니다.',
+  'auth/operation-not-allowed': 'Firebase 콘솔 → Authentication → 이메일/비밀번호를 활성화해주세요.',
+  'auth/configuration-not-found': 'Firebase 콘솔 → Authentication → "시작하기"를 클릭 후 이메일/비밀번호를 활성화해주세요.',
+  'auth/network-request-failed': '네트워크 오류입니다. 인터넷 연결을 확인해주세요.',
 }
 
 function getErrorMsg(code: string) {
-  return ERROR_MAP[code] ?? '회원가입에 실패했습니다. 다시 시도해주세요.'
+  return ERROR_MAP[code] ?? `회원가입에 실패했습니다. (${code})`
 }
 
 // ── Step 1: 계정 유형 선택 ──────────────────────────────────────
@@ -128,7 +131,8 @@ function InfoFormStep({
       navigate(role === 'merchant' ? '/merchant' : '/map', { replace: true })
     } catch (err) {
       const code = (err as { code?: string }).code ?? ''
-      setError(getErrorMsg(code))
+      console.error('[SignUp Error]', code, err)
+      setError(`${getErrorMsg(code)} (코드: ${code})`)
     } finally {
       setLoading(false)
     }

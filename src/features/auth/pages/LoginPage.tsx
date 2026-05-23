@@ -9,10 +9,13 @@ const ERROR_MAP: Record<string, string> = {
   'auth/wrong-password': '비밀번호가 올바르지 않습니다.',
   'auth/invalid-email': '유효하지 않은 이메일 형식입니다.',
   'auth/too-many-requests': '잠시 후 다시 시도해주세요.',
+  'auth/configuration-not-found': 'Firebase 콘솔 → Authentication → "시작하기"를 클릭 후 이메일/비밀번호를 활성화해주세요.',
+  'auth/operation-not-allowed': 'Firebase 콘솔 → Authentication → 이메일/비밀번호를 활성화해주세요.',
+  'auth/network-request-failed': '네트워크 오류입니다. 인터넷 연결을 확인해주세요.',
 }
 
 function getErrorMsg(code: string) {
-  return ERROR_MAP[code] ?? '로그인에 실패했습니다. 다시 시도해주세요.'
+  return ERROR_MAP[code] ?? `로그인에 실패했습니다. (${code})`
 }
 
 export default function LoginPage() {
