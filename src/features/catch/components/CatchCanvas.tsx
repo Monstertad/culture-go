@@ -17,11 +17,7 @@ const TOOLS = {
 const DEMO_CHEAT_100 = true
 const DEFAULT_MAX_HP = 100
 
-const MOCK_AI_IMAGES = [
-  'https://images.unsplash.com/photo-1536680465769-a36969fa7d41?q=80&w=512&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?q=80&w=512&auto=format&fit=crop',
-  'https://images.unsplash.com/photo-1551024601-bec78aea704b?q=80&w=512&auto=format&fit=crop',
-]
+const EVOLVED_IMAGE_URL = '/monsters/evolved.png'
 
 type Phase = 'fighting' | 'judging' | 'caught' | 'fled' | 'fusion_ready' | 'fusing' | 'fusion_complete'
 
@@ -107,8 +103,7 @@ export default function CatchCanvas({
   const generateLegendImageMock = async (): Promise<string> => {
     setFusionLog('AI가 전설의 비주얼을 실시간 렌더링 중... 🎨')
     await new Promise((resolve) => setTimeout(resolve, 1200))
-    const randomIndex = Math.floor(Math.random() * MOCK_AI_IMAGES.length)
-    return MOCK_AI_IMAGES[randomIndex]
+    return EVOLVED_IMAGE_URL
   }
 
   // 🎯 [핵심 수식] 포획 성공 판정 시 카운트 체크 및 즉시 융합 분기점
