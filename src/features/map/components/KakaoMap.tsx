@@ -18,6 +18,7 @@ export default function KakaoMap({ monsters, userLocation, onMonsterClick }: Pro
   const overlaysRef = useRef<KakaoSDK[]>([])
   const onClickRef = useRef(onMonsterClick)
   const [mapReady, setMapReady] = useState(false)
+  const [mapError, setMapError] = useState<string | null>(null)
 
   // 콜백 ref로 stale closure 방지
   useEffect(() => {
@@ -33,6 +34,7 @@ export default function KakaoMap({ monsters, userLocation, onMonsterClick }: Pro
     const initMap = () => {
       const k: KakaoSDK = (window as KakaoSDK).kakao
       k.maps.load(() => {
+        if (!containerRef.current) return
         const center = new k.maps.LatLng(userLocation.lat, userLocation.lng)
         mapRef.current = new k.maps.Map(containerRef.current, { center, level: 3 })
         setMapReady(true)
@@ -46,9 +48,13 @@ export default function KakaoMap({ monsters, userLocation, onMonsterClick }: Pro
       script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_APP_KEY}&autoload=false`
       script.async = true
       script.onload = initMap
+      script.onerror = () => {
+        console.error('[KakaoMap] SDK 로드 실패. API 키와 도메인 설정을 확인하세요.')
+        setMapError('지도를 불러오지 못했습니다.\nKakao 콘솔에서 localhost 도메인을 등록했는지 확인하세요.')
+      }
       document.head.appendChild(script)
     }
-  // userLocation은 최초 1회만 사용 (지도 이동은 별도 처리)
+  // userLocation은 최초 1회만 사용
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -149,5 +155,16 @@ export default function KakaoMap({ monsters, userLocation, onMonsterClick }: Pro
     )
   }
 
-  return <div ref={containerRef} className="w-full h-full" />
+  if (mapError) {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-red-50 px-6 text-center">
+        <span className="text-4xl">⚠️</span>
+        <p className="text-sm font-bold text-red-600 whitespace-pre-line">{mapError}</p>
+        <p className="text-xs text-gray-400">브라우저 콘솔(F12)에서 상세 오류를 확인하세요.</p>
+      </div>
+    )
+  }
+
+  // absolute inset-0: flex 높이 계산 없이 positioned 부모를 꽉 채움
+  return <div ref={containerRef} className="absolute inset-0" />
 }
