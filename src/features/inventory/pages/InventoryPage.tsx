@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   collection, query, where, onSnapshot,
-  addDoc, updateDoc, doc, serverTimestamp,
+  addDoc, updateDoc, doc, serverTimestamp, getDocs, deleteDoc
 } from 'firebase/firestore'
 import { QRCodeSVG } from 'qrcode.react'
 import { db } from '../../../config/firebase'
@@ -18,6 +18,10 @@ export default function InventoryPage() {
   const [coupons, setCoupons] = useState<Coupon[]>([])
   const [fusingId, setFusingId] = useState<string | null>(null)
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null)
+  
+  // 🧼 초기화 로딩 상태 추가
+  const [isClearing, setIsClearing] = useState(false)
+  
   const userId = getUserId()
 
   useEffect(() => {
@@ -39,6 +43,32 @@ export default function InventoryPage() {
       setCoupons(data)
     })
   }, [userId])
+
+  // 🧹 [지민님 요청] 현재 로그인된 userId의 몬스터 데이터와 세션을 통째로 날려버리는 초기화 로직
+  const clearMyInventory = async () => {
+    if (!window.confirm('정말로 도감의 몬스터들을 전부 삭제하고 초기화하시겠습니까?')) return
+    
+    setIsClearing(true)
+    try {
+      // 1. 파이어베이스에 쌓인 내 인벤토리 데이터 긁어오기
+      const q = query(collection(db, 'user_inventory'), where('userId', '==', userId))
+      const snapshot = await getDocs(q)
+      
+      // 2. 루프 돌면서 하나씩 전부 완전 삭제(deleteDoc) 처리
+      const deletePromises = snapshot.docs.map((d) => deleteDoc(doc(db, 'user_inventory', d.id)))
+      await Promise.all(deletePromises)
+      
+      // 3. 지민님 AR 포획 화면에 걸려있던 세션 카운터 스토리지도 리셋
+      sessionStorage.removeItem('DEMO_TOWISO_COUNT')
+      
+      alert('도감이 깨끗하게 비워졌습니다! 처음부터 다시 테스트해보세요. 🧼')
+    } catch (err) {
+      console.error('도감 초기화 에러:', err)
+      alert('초기화 중 오류가 발생했습니다.')
+    } finally {
+      setIsClearing(false)
+    }
+  }
 
   const handleFusion = async (item: UserInventory) => {
     if (item.count < FUSION_REQUIRED || item.isFused || fusingId) return
@@ -68,11 +98,22 @@ export default function InventoryPage() {
   return (
     <div className="flex flex-col h-full bg-white">
       {/* 헤더 */}
-      <header className="px-5 pt-12 pb-4 shrink-0">
-        <h1 className="text-2xl font-black text-gray-900">도감 & 쿠폰함</h1>
-        <p className="text-sm text-gray-400 mt-0.5">
-          포획한 몬스터와 발급된 쿠폰을 확인하세요
-        </p>
+      <header className="px-5 pt-12 pb-4 shrink-0 flex justify-between items-start">
+        <div>
+          <h1 className="text-2xl font-black text-gray-900">도감 & 쿠폰함</h1>
+          <p className="text-sm text-gray-400 mt-0.5">
+            포획한 몬스터와 발급된 쿠폰을 확인하세요
+          </p>
+        </div>
+        
+        {/* 🧹 우측 상단 초기화 치트 버튼 */}
+        <button
+          onClick={clearMyInventory}
+          disabled={isClearing}
+          className="text-xs bg-red-50 text-red-600 border border-red-200 rounded-xl px-3 py-1.5 font-bold hover:bg-red-100 active:scale-95 transition-all disabled:opacity-50 shrink-0 mt-1"
+        >
+          {isClearing ? '청소중...' : '🧹 도감 초기화'}
+        </button>
       </header>
 
       {/* 탭 */}
