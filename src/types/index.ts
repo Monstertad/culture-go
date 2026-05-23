@@ -56,6 +56,19 @@ export interface Coupon {
   createdAt: Date
 }
 
+// merchants 컬렉션 — 상인 가게 인증 (최초 1회, 문서 ID = uid)
+export interface MerchantVerification {
+  uid: string
+  shopName: string
+  shopId: string
+  category: string
+  lat: number
+  lng: number
+  businessNumber: string
+  status: 'verified'      // 데모: 제출 즉시 verified
+  createdAt: Date
+}
+
 // AR 포획 화면에 넘길 몬스터 정보 (sessionStorage 키: 'catchTarget')
 export interface CatchTarget {
   monsterId: string

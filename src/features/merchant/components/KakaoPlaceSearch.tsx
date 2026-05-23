@@ -15,8 +15,10 @@ interface KakaoPlace {
 }
 
 export interface SelectedPlace {
+  id: string
   name: string
   address: string
+  category: string
   lat: number
   lng: number
 }
@@ -98,8 +100,10 @@ export default function KakaoPlaceSearch({ onSelect }: Props) {
 
   const handleSelect = (place: KakaoPlace) => {
     const selected: SelectedPlace = {
+      id: place.id,
       name: place.place_name,
       address: place.road_address_name || place.address_name,
+      category: (place as unknown as { category_name?: string }).category_name?.split('>').pop()?.trim() ?? '기타',
       lat: parseFloat(place.y),
       lng: parseFloat(place.x),
     }
