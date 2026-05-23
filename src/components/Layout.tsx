@@ -59,7 +59,7 @@ export default function Layout({ children }: LayoutProps) {
             {/* 로그아웃 버튼 */}
             <button
               onClick={handleLogout}
-              className="flex flex-col items-center justify-center py-2 gap-0.5 text-xs font-medium text-gray-400 hover:text-red-400 transition-colors px-3"
+              className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 text-xs font-medium text-gray-400 hover:text-red-400 transition-colors"
               title="로그아웃"
             >
               <span className="text-xl leading-none">🚪</span>
