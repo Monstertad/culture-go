@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app'
 import { getFirestore } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
+import { getFunctions, connectFunctionsEmulator } from 'firebase/functions'
 
 const firebaseConfig = {
   apiKey: "AIzaSyAdXjsYhaowWrDYduJyzOzJmahKMOJsGTE",
@@ -15,3 +16,9 @@ const app = initializeApp(firebaseConfig)
 
 export const db = getFirestore(app)
 export const auth = getAuth(app)
+export const functions = getFunctions(app, 'asia-northeast3')
+
+// 로컬 에뮬레이터: .env에 VITE_USE_EMULATOR=true 설정 시 활성화
+if (import.meta.env.VITE_USE_EMULATOR === 'true') {
+  connectFunctionsEmulator(functions, 'localhost', 5001)
+}

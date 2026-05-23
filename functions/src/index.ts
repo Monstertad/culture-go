@@ -2,7 +2,9 @@ import * as admin from 'firebase-admin'
 import { onCall, HttpsError } from 'firebase-functions/v2/https'
 import OpenAI from 'openai'
 
-admin.initializeApp()
+admin.initializeApp({
+  storageBucket: 'culture-go-168db.firebasestorage.app',
+})
 
 // ─────────────────────────────────────────────────────────────
 // 환경변수 설정 방법
@@ -81,7 +83,7 @@ async function generateImage(openai: OpenAI, prompt: string): Promise<string> {
     size: '1024x1024',
     quality: 'low', // low / medium / high — 데모: low (빠르고 저렴)
   })
-  const b64 = res.data[0].b64_json
+  const b64 = res.data?.[0]?.b64_json
   if (!b64) throw new HttpsError('internal', '이미지 생성 응답이 비어있습니다.')
   return b64
 }
@@ -136,47 +138,47 @@ async function uploadImage(monsterId: string, b64Png: string): Promise<string> {
 // ─── 메인 Cloud Function ─────────────────────────────────────
 export const generateMonster = onCall(
   {
-    timeoutSeconds: 300, // 이미지 생성 + 누끼 최대 5분
+    region: 'asia-northeast3',
+    timeoutSeconds: 300,
     memory: '512MiB',
-    // secrets: ['OPENAI_API_KEY', 'REMOVE_BG_API_KEY'], // 프로덕션 배포 시 주석 해제
+    secrets: ['OPENAI_API_KEY', 'REMOVE_BG_API_KEY'],
   },
   async (request) => {
-    const input = request.data as GenerateInput
-    if (!input.shopId || !input.shopName || !input.menu) {
-      throw new HttpsError('invalid-argument', '필수 파라미터가 없습니다.')
+    try {
+      const input = request.data as GenerateInput
+      if (!input.shopId || !input.shopName || !input.menu) {
+        throw new HttpsError('invalid-argument', '필수 파라미터가 없습니다.')
+      }
+
+      const openai    = getOpenAI()
+      const monsterId = `monster_${Date.now()}`
+
+      const settings  = await generateSettings(openai, input)
+      const rawB64    = await generateImage(openai, settings.imagePrompt)
+      const cleanB64  = await removeBg(rawB64)
+      const imageUrl  = await uploadImage(monsterId, cleanB64)
+
+      const monsterData = {
+        shopId:      input.shopId,
+        name:        settings.name,
+        category:    input.category,
+        description: settings.description,
+        attribute:   settings.attribute,
+        rarity:      settings.rarity,
+        imageUrl,
+        lat: parseFloat(input.lat.toFixed(6)),
+        lng: parseFloat(input.lng.toFixed(6)),
+        status:    'approved',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      }
+      await admin.firestore().collection('monsters').doc(monsterId).set(monsterData)
+
+      return { id: monsterId, ...monsterData }
+    } catch (e) {
+      if (e instanceof HttpsError) throw e
+      const msg = e instanceof Error ? e.message : String(e)
+      console.error('[generateMonster]', msg, e)
+      throw new HttpsError('internal', msg)
     }
-
-    const openai    = getOpenAI()
-    const monsterId = `monster_${Date.now()}`
-
-    // 1. GPT 텍스트 생성
-    const settings = await generateSettings(openai, input)
-
-    // 2. 이미지 생성
-    const rawB64 = await generateImage(openai, settings.imagePrompt)
-
-    // 3. 배경 제거 (누끼)
-    const cleanB64 = await removeBg(rawB64)
-
-    // 4. Storage 업로드
-    const imageUrl = await uploadImage(monsterId, cleanB64)
-
-    // 5. Firestore 저장
-    const monsterData = {
-      shopId:      input.shopId,
-      name:        settings.name,
-      category:    input.category,
-      description: settings.description,
-      attribute:   settings.attribute,
-      rarity:      settings.rarity,
-      imageUrl,
-      lat: parseFloat(input.lat.toFixed(6)),
-      lng: parseFloat(input.lng.toFixed(6)),
-      status: 'approved', // 데모: 즉시 승인 → 유저 지도에 바로 반영
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    }
-    await admin.firestore().collection('monsters').doc(monsterId).set(monsterData)
-
-    return { id: monsterId, ...monsterData }
   }
 )

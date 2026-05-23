@@ -89,7 +89,7 @@ export default function MerchantVerificationScreen({ onVerified }: Props) {
 
         <button
           type="submit"
-          disabled={!place || businessNumber.length !== 10 || isSubmitting}
+          disabled={!place || !businessNumber.trim() || isSubmitting}
           className="w-full bg-amber-400 text-black font-black py-4 rounded-2xl text-base disabled:opacity-40 disabled:cursor-not-allowed mt-auto"
         >
           {isSubmitting ? '인증 처리 중...' : '가게 인증 완료'}
