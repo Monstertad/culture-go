@@ -33,9 +33,17 @@ export default function QRScannerScreen() {
       if (!snap.exists()) { setStatus('error'); setErrMsg('존재하지 않는 쿠폰입니다.'); return }
       const d = snap.data()
       const c: Coupon = {
-        id: snap.id, userId: d.userId, shopId: d.shopId,
-        shopName: d.shopName, title: d.title, category: d.category,
-        isUsed: d.isUsed, createdAt: d.createdAt?.toDate?.() ?? new Date(),
+        id: snap.id,
+        monsterId: d.monsterId ?? '',
+        monsterName: d.monsterName ?? '',
+        shopId: d.shopId,
+        shopName: d.shopName,
+        title: d.title,
+        benefit: d.benefit ?? '',
+        isUsed: d.isUsed,
+        isActive: d.isActive ?? true,
+        status: d.status ?? 'approved',
+        createdAt: d.createdAt?.toDate?.() ?? new Date(),
       }
       if (c.isUsed) { setStatus('error'); setErrMsg('이미 사용된 쿠폰입니다.'); return }
       setCoupon(c); setStatus('found')
@@ -110,6 +118,7 @@ export default function QRScannerScreen() {
           <div className="flex justify-between items-start">
             <div>
               <p className="font-black text-gray-900">{coupon.title}</p>
+              {coupon.benefit && <p className="text-sm text-amber-600 mt-0.5">{coupon.benefit}</p>}
               <p className="text-sm text-gray-500">{coupon.shopName}</p>
               <p className="text-xs text-gray-400 mt-0.5">
                 {coupon.createdAt instanceof Date ? coupon.createdAt.toLocaleDateString('ko-KR') : ''}

@@ -14,7 +14,7 @@ export default function UserMainMap() {
   const [demoMode, setDemoMode] = useState(false)
 
   useEffect(() => {
-    const q = query(collection(db, 'monsters'), where('status', '==', 'approved'))
+    const q = query(collection(db, 'Monster'), where('status', '==', 'approved'))
     const unsub = onSnapshot(q, (snap) => {
       setMonsters(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Monster)))
     })

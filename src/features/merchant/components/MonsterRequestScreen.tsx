@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
+import { db } from '../../../config/firebase'
+import CouponRegisterScreen from './CouponRegisterScreen'
 
 interface MonsterResult {
   id: string
@@ -13,9 +16,9 @@ type Step = 'idle' | 'generating' | 'imaging' | 'nuking' | 'saving' | 'done' | '
 
 const STEP_INFO: Record<string, { label: string; sub: string }> = {
   generating: { label: '🧠 몬스터 설정 생성 중', sub: 'GPT가 가게 특성을 분석합니다' },
-  imaging:    { label: '🎨 이미지 생성 중',      sub: '약 20~60초 소요됩니다 (무료 AI)' },
+  imaging:    { label: '🎨 이미지 생성 중',      sub: '약 20~60초 소요됩니다' },
   nuking:     { label: '✂️ 배경 제거(누끼) 중',   sub: '투명 배경 PNG로 변환합니다' },
-  saving:     { label: '💾 저장 중',              sub: '마무리 작업 중입니다' },
+  saving:     { label: '💾 Firebase에 저장 중',  sub: '몬스터를 등록합니다' },
 }
 
 const RARITY_STYLE: Record<string, string> = {
@@ -31,7 +34,7 @@ const RARITY_KO: Record<string, string> = {
 
 const STEPS = ['generating', 'imaging', 'nuking', 'saving'] as const
 
-// ── 몬스터 설정 로직 ────────────────────────────────────────────
+// ── 몬스터 설정 로직 ──────────────────────────────────────────
 const SUFFIXES = ['몬', '령', '귀', '수', '신', '정', '왕', '마']
 const RARITIES: MonsterResult['rarity'][] = ['common', 'rare', 'epic', 'legendary']
 const RARITY_WEIGHTS = [50, 30, 15, 5]
@@ -78,7 +81,7 @@ const DESCRIPTIONS: Record<string, string[]> = {
   바삭:   ['황금빛 갑옷을 두른 바삭한 몬스터.', '튀김옷 방어막으로 공격을 튕겨내는 몬스터.'],
 }
 
-// ── 데모용 목업 이미지 ────────────────────────────────────────────
+// ── 이미지 (목업) ──────────────────────────────────────────────
 const MOCK_IMAGE_URL = '/monsters/mock.png'
 
 async function generateImage(): Promise<string> {
@@ -87,7 +90,7 @@ async function generateImage(): Promise<string> {
 
 const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
-// ── 컴포넌트 ────────────────────────────────────────────────────
+// ── 컴포넌트 ──────────────────────────────────────────────────
 interface Props {
   shopId: string
   shopName: string
@@ -96,28 +99,27 @@ interface Props {
   lng: number
 }
 
-export default function MonsterRequestScreen({ shopName, category }: Props) {
+export default function MonsterRequestScreen({ shopId, shopName, category, lat, lng }: Props) {
   const [menu, setMenu]       = useState('')
   const [feature, setFeature] = useState('')
   const [keyword, setKeyword] = useState('')
   const [step, setStep]       = useState<Step>('idle')
   const [monster, setMonster] = useState<MonsterResult | null>(null)
-  const [showPopup, setShowPopup] = useState(false)
+  const [showPopup, setShowPopup]               = useState(false)
+  const [showCouponRegister, setShowCouponRegister] = useState(false)
   const [error, setError]     = useState('')
 
   const handleGenerate = async () => {
-    setMonster(null); setShowPopup(false); setError('')
+    setMonster(null); setShowPopup(false); setShowCouponRegister(false); setError('')
 
-    // 1. 몬스터 설정 생성 (즉시)
     setStep('generating')
-    const name      = buildName(menu, shopName)
-    const attribute = pickAttribute([menu, feature, keyword])
-    const rarity    = pickRarity()
-    const descPool  = DESCRIPTIONS[attribute] ?? ['충청도의 기운을 품은 신비로운 몬스터.']
+    const name        = buildName(menu, shopName)
+    const attribute   = pickAttribute([menu, feature, keyword])
+    const rarity      = pickRarity()
+    const descPool    = DESCRIPTIONS[attribute] ?? ['충청도의 기운을 품은 신비로운 몬스터.']
     const description = descPool[Math.floor(Math.random() * descPool.length)]
     await delay(600)
 
-    // 2. OpenAI 이미지 생성 (실제 API 호출)
     setStep('imaging')
     let imageUrl: string
     try {
@@ -127,21 +129,55 @@ export default function MonsterRequestScreen({ shopName, category }: Props) {
       setStep('error')
       return
     }
+    await delay(500)
 
     setStep('nuking'); await delay(500)
-    setStep('saving'); await delay(400)
 
-    setMonster({ id: `monster_${Date.now()}`, name, description, attribute, rarity, imageUrl })
+    // Firestore monsters 컬렉션에 저장 (Monster 타입 준수)
+    setStep('saving')
+    let savedId: string
+    try {
+      const docRef = await addDoc(collection(db, 'Monster'), {
+        shopId, shopName, category,
+        name, description, attribute, rarity, imageUrl,
+        lat, lng,
+        status: 'approved',
+        createdAt: serverTimestamp(),
+      })
+      savedId = docRef.id
+    } catch {
+      setError('DB 저장 실패. 다시 시도해주세요.')
+      setStep('error')
+      return
+    }
+    await delay(300)
+
+    setMonster({ id: savedId, name, description, attribute, rarity, imageUrl })
     setStep('done')
     setShowPopup(true)
   }
 
   const handleReset = () => {
-    setStep('idle'); setMonster(null); setShowPopup(false)
+    setStep('idle'); setMonster(null)
+    setShowPopup(false); setShowCouponRegister(false)
     setMenu(''); setFeature(''); setKeyword('')
   }
 
   const isLoading = (['generating', 'imaging', 'nuking', 'saving'] as Step[]).includes(step)
+
+  // 쿠폰 등록 화면으로 전환
+  if (showCouponRegister && monster) {
+    return (
+      <CouponRegisterScreen
+        monsterId={monster.id}
+        monsterName={monster.name}
+        monsterImageUrl={monster.imageUrl}
+        shopId={shopId}
+        shopName={shopName}
+        onComplete={handleReset}
+      />
+    )
+  }
 
   return (
     <div className="flex flex-col gap-5 p-5">
@@ -220,8 +256,7 @@ export default function MonsterRequestScreen({ shopName, category }: Props) {
             {STEPS.map((s) => {
               const si = STEPS.indexOf(s)
               const ci = STEPS.indexOf(step as typeof STEPS[number])
-              const done   = si < ci
-              const active = si === ci
+              const done = si < ci; const active = si === ci
               return (
                 <div key={s} className="flex items-center gap-3 text-sm">
                   <span className={done ? 'text-green-500' : active ? 'text-amber-400 animate-pulse' : 'text-gray-200'}>
@@ -245,12 +280,15 @@ export default function MonsterRequestScreen({ shopName, category }: Props) {
             <div className="flex-1 min-w-0">
               <p className="font-black text-gray-900">{monster.name}</p>
               <p className="text-xs text-gray-500 mt-0.5">{monster.attribute} 속성 · {RARITY_KO[monster.rarity]}</p>
-              <p className="text-xs text-green-600 mt-1">✅ 유저 지도에 표시됩니다</p>
+              <p className="text-xs text-green-600 mt-1">✅ DB에 등록 완료</p>
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={handleReset} className="flex-1 border border-gray-200 rounded-xl py-3 text-sm font-bold text-gray-600">
-              새 몬스터 신청
+            <button
+              onClick={() => setShowCouponRegister(true)}
+              className="flex-1 bg-amber-400 text-black rounded-xl py-3 text-sm font-black"
+            >
+              🎫 쿠폰 등록하기
             </button>
             <button onClick={handleGenerate} className="flex-1 bg-purple-100 text-purple-700 rounded-xl py-3 text-sm font-bold">
               🔄 다시 생성
@@ -293,16 +331,22 @@ export default function MonsterRequestScreen({ shopName, category }: Props) {
                 </span>
               </div>
               <p className="text-sm text-gray-600 leading-relaxed">{monster.description}</p>
-              <div className="bg-green-50 rounded-xl px-4 py-3 flex items-center gap-2">
-                <span className="text-lg">🗺️</span>
-                <p className="text-xs text-green-700 font-medium">유저 지도에 즉시 표시됩니다</p>
+              <div className="bg-amber-50 rounded-xl px-4 py-3 flex items-center gap-2">
+                <span className="text-lg">🎫</span>
+                <p className="text-xs text-amber-700 font-medium">다음 단계에서 쿠폰을 등록해보세요!</p>
               </div>
               <div className="flex gap-2 pb-2">
-                <button onClick={handleReset} className="flex-1 border border-gray-200 rounded-xl py-3 text-sm font-bold text-gray-600">
-                  새 몬스터 신청
-                </button>
-                <button onClick={handleGenerate} className="flex-1 bg-purple-100 text-purple-700 rounded-xl py-3 text-sm font-bold">
+                <button
+                  onClick={handleGenerate}
+                  className="flex-1 border border-gray-200 rounded-xl py-3 text-sm font-bold text-gray-600"
+                >
                   🔄 다시 생성
+                </button>
+                <button
+                  onClick={() => { setShowPopup(false); setShowCouponRegister(true) }}
+                  className="flex-1 bg-amber-400 text-black rounded-xl py-3 text-sm font-black"
+                >
+                  완료
                 </button>
               </div>
             </div>

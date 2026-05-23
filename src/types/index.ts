@@ -11,12 +11,17 @@ export interface AppUser {
 export interface Monster {
   id: string
   shopId: string
+  shopName: string
   name: string
+  description: string
+  attribute: string
+  rarity: 'common' | 'rare' | 'epic' | 'legendary'
   category: string
   lat: number
   lng: number
   status: 'approved' | 'pending'
   imageUrl: string
+  createdAt: Date
 }
 
 // shops 컬렉션
@@ -47,12 +52,15 @@ export interface UserInventory {
 // coupons 컬렉션
 export interface Coupon {
   id: string
-  userId: string
+  monsterId: string
+  monsterName: string
   shopId: string
   shopName: string
   title: string
-  category: string
+  benefit: string
   isUsed: boolean
+  isActive: boolean
+  status: 'pending' | 'approved'
   createdAt: Date
 }
 

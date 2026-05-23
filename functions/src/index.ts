@@ -171,7 +171,7 @@ export const generateMonster = onCall(
         status:    'approved',
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       }
-      await admin.firestore().collection('monsters').doc(monsterId).set(monsterData)
+      await admin.firestore().collection('Monster').doc(monsterId).set(monsterData)
 
       return { id: monsterId, ...monsterData }
     } catch (e) {
