@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { collection, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, doc, updateDoc, addDoc, getDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../../config/firebase'
 import type { UserInventory } from '../../../types'
 import { getUserId } from '../../../utils/userId'
@@ -32,17 +32,38 @@ export function useFusion() {
         capturedAt:      new Date(),
       })
 
-      // 3. 쿠폰 발급 (monsterId 포함 → 쿠폰함 QR로 확인 가능)
-      await addDoc(collection(db, 'coupons'), {
+      // 3. Monster 문서에서 couponTemplateId 조회
+      const monsterSnap = await getDoc(doc(db, 'Monster', item.monsterId))
+      const couponTemplateId: string | null = monsterSnap.data()?.couponTemplateId ?? null
+
+      let couponPayload: Record<string, unknown> = {
         userId,
         monsterId:  item.monsterId,
+        templateId: null,
         shopId:     item.shopId,
         shopName:   item.shopName || '상점',
         title:      `${item.monsterName} 융합 쿠폰`,
+        benefit:    '',
         category:   item.category,
         isUsed:     false,
         createdAt:  serverTimestamp(),
-      })
+      }
+
+      // 4. 템플릿이 있으면 제목/혜택을 상인 등록 내용으로 덮어쓰기
+      if (couponTemplateId) {
+        const templateSnap = await getDoc(doc(db, 'couponTemplates', couponTemplateId))
+        if (templateSnap.exists()) {
+          const t = templateSnap.data()
+          couponPayload = {
+            ...couponPayload,
+            templateId: couponTemplateId,
+            title:      t.title   ?? couponPayload.title,
+            benefit:    t.benefit ?? '',
+          }
+        }
+      }
+
+      await addDoc(collection(db, 'coupons'), couponPayload)
 
       return true
     } catch (err) {

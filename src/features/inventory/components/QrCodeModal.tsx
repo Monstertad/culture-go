@@ -1,12 +1,38 @@
+import { useEffect, useState } from 'react'
+import { doc, onSnapshot } from 'firebase/firestore'
 import { QRCodeSVG } from 'qrcode.react'
+import { db } from '../../../config/firebase'
 import type { Coupon } from '../../../types'
 
 interface Props {
-  coupon:   Coupon
-  onClose:  () => void
+  coupon:  Coupon
+  onClose: () => void
 }
 
-export default function QrCodeModal({ coupon, onClose }: Props) {
+export default function QrCodeModal({ coupon: initialCoupon, onClose }: Props) {
+  const [coupon, setCoupon] = useState<Coupon>(initialCoupon)
+
+  // 상인이 isUsed: true로 업데이트하면 즉시 반영
+  useEffect(() => {
+    return onSnapshot(doc(db, 'coupons', initialCoupon.id), (snap) => {
+      if (!snap.exists()) return
+      const d = snap.data()
+      setCoupon({
+        id:         snap.id,
+        userId:     d.userId,
+        monsterId:  d.monsterId,
+        templateId: d.templateId ?? null,
+        shopId:     d.shopId,
+        shopName:   d.shopName,
+        title:      d.title,
+        benefit:    d.benefit ?? '',
+        category:   d.category,
+        isUsed:     d.isUsed,
+        createdAt:  d.createdAt?.toDate?.() ?? new Date(),
+      })
+    })
+  }, [initialCoupon.id])
+
   return (
     <div
       className="fixed inset-0 bg-black/30 flex items-end z-20"
@@ -21,6 +47,9 @@ export default function QrCodeModal({ coupon, onClose }: Props) {
         <div className="text-center">
           <h2 className="font-black text-lg text-gray-900">{coupon.title}</h2>
           <p className="text-sm text-gray-400 mt-0.5">{coupon.shopName}</p>
+          {coupon.benefit && (
+            <p className="text-xs text-amber-600 font-semibold mt-1">{coupon.benefit}</p>
+          )}
         </div>
 
         {coupon.isUsed ? (

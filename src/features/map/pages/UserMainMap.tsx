@@ -1,46 +1,52 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { collection, query, where, onSnapshot } from 'firebase/firestore'
+import { collection, query, where, onSnapshot, getDocs, limit } from 'firebase/firestore'
 import { db } from '../../../config/firebase'
 import type { Monster } from '../../../types'
 import KakaoMap from '../components/KakaoMap'
 
 const CNU_ENG_5 = { lat: 36.3667148, lng: 127.3443006 }
 
-const FALLBACK_MONSTER: Monster = {
-  id: 'test_monster_cnu',
-  shopId: 'shop_sungsimdang',
-  shopName: '성심당 본점',
-  name: '튀소용',
-  category: '빵몬스터',
-  lat: CNU_ENG_5.lat,
-  lng: CNU_ENG_5.lng,
-  status: 'approved',
-  imageUrl: '/monsters/mock.png',
-}
+// 공과대학5호관(place.map.kakao.com/17561301) 주변 고정 핀 위치
+const PINNED_POSITIONS = [
+  { lat: 36.3673, lng: 127.3450 },
+  { lat: 36.3661, lng: 127.3437 },
+]
 
 export default function UserMainMap() {
   const navigate = useNavigate()
-  const [monsters, setMonsters] = useState<Monster[]>([])
-  const [userLocation, setUserLocation] = useState(CNU_ENG_5)
+  const [pinnedMonsters, setPinnedMonsters] = useState<Monster[]>([])
+  const [liveMonsters, setLiveMonsters]     = useState<Monster[]>([])
+  const [userLocation, setUserLocation]     = useState(CNU_ENG_5)
   const [selectedMonster, setSelectedMonster] = useState<Monster | null>(null)
-  const [usingFallback, setUsingFallback] = useState(false)
 
-  // Firestore Monster 컬렉션 구독
+  // 실제 Monster 컬렉션에서 2마리 가져와 CNU5 근처에 고정
   useEffect(() => {
-    const q = query(collection(db, 'Monster'), where('status', '==', 'approved'))
-    return onSnapshot(q, (snap) => {
-      if (snap.empty) {
-        setMonsters([FALLBACK_MONSTER])
-        setUsingFallback(true)
-      } else {
-        setMonsters(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Monster)))
-        setUsingFallback(false)
-      }
+    getDocs(
+      query(collection(db, 'Monster'), where('status', '==', 'approved'), limit(10))
+    ).then((snap) => {
+      const valid = snap.docs.filter((d) => d.id !== 'monster_001')
+      const pinned = valid.slice(0, 2).map((d, i) => ({
+        ...(d.data() as Omit<Monster, 'id'>),
+        id:  `pinned_${d.id}`,
+        lat: PINNED_POSITIONS[i].lat,
+        lng: PINNED_POSITIONS[i].lng,
+      } as Monster))
+      setPinnedMonsters(pinned)
     })
   }, [])
 
-  // GPS
+  // 실시간 Firestore 구독 (pinned로 올라간 원본 ID 제외)
+  useEffect(() => {
+    const q = query(collection(db, 'Monster'), where('status', '==', 'approved'))
+    return onSnapshot(q, (snap) => {
+      const fromFirestore = snap.docs
+        .filter((d) => d.id !== 'monster_001')
+        .map((d) => ({ id: d.id, ...d.data() } as Monster))
+      setLiveMonsters(fromFirestore)
+    })
+  }, [])
+
   useEffect(() => {
     if (!navigator.geolocation) return
     navigator.geolocation.getCurrentPosition(
@@ -50,6 +56,13 @@ export default function UserMainMap() {
     )
   }, [])
 
+  // pinned 원본 ID를 liveMonsters에서 제외해 중복 방지
+  const pinnedOriginalIds = new Set(pinnedMonsters.map((m) => m.id.replace('pinned_', '')))
+  const monsters = [
+    ...pinnedMonsters,
+    ...liveMonsters.filter((m) => !pinnedOriginalIds.has(m.id)),
+  ]
+
   const handleMonsterClick = useCallback((monster: Monster) => {
     setSelectedMonster(monster)
   }, [])
@@ -57,14 +70,14 @@ export default function UserMainMap() {
   const handleCatch = () => {
     if (!selectedMonster) return
     sessionStorage.setItem('catchTarget', JSON.stringify({
-      id: selectedMonster.id,
-      name: selectedMonster.name,
+      id:       selectedMonster.id.replace('pinned_', ''),  // 원본 ID로 저장
+      name:     selectedMonster.name,
       imageUrl: selectedMonster.imageUrl,
       category: selectedMonster.category,
-      shopId: selectedMonster.shopId,
+      shopId:   selectedMonster.shopId,
       shopName: selectedMonster.shopName,
-      lat: selectedMonster.lat,
-      lng: selectedMonster.lng,
+      lat:      selectedMonster.lat,
+      lng:      selectedMonster.lng,
     }))
     navigate('/catch')
   }
@@ -76,12 +89,7 @@ export default function UserMainMap() {
           <div className="w-8 h-8 bg-amber-400 rounded-xl flex items-center justify-center shadow-sm">
             <span className="text-sm">🐾</span>
           </div>
-          <div>
-            <h1 className="text-lg font-black text-gray-900 tracking-tight leading-none">Culture Go</h1>
-            {usingFallback && (
-              <p className="text-[10px] text-amber-500 font-bold mt-0.5">📍 테스트 몬스터 표시 중</p>
-            )}
-          </div>
+          <h1 className="text-lg font-black text-gray-900 tracking-tight leading-none">Culture Go</h1>
         </div>
       </header>
 

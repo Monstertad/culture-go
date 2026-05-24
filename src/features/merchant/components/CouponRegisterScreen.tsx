@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { collection, query, where, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../../config/firebase'
 
 interface MonsterItem {
@@ -59,16 +59,22 @@ export default function CouponRegisterScreen({ shopId, shopName }: Props) {
     setIsSubmitting(true)
     setError('')
     try {
-      await addDoc(collection(db, 'coupons'), {
-        userId:    '',
+      // 1. couponTemplates 컬렉션에 템플릿 저장
+      const templateRef = await addDoc(collection(db, 'couponTemplates'), {
         shopId,
         shopName,
-        title:    title.trim(),
-        category: selected.category,
-        benefit:  benefit.trim(),
-        isUsed:   false,
+        monsterId: selected.id,
+        title:     title.trim(),
+        benefit:   benefit.trim(),
+        category:  selected.category,
         createdAt: serverTimestamp(),
       })
+
+      // 2. Monster 문서에 couponTemplateId 역참조 기록
+      await updateDoc(doc(db, 'Monster', selected.id), {
+        couponTemplateId: templateRef.id,
+      })
+
       await new Promise((r) => setTimeout(r, 800))
       setShowPopup(true)
     } catch {
