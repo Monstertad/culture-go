@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { collection, addDoc } from 'firebase/firestore'
+import { db } from '../../../config/firebase'
 
 interface MonsterResult {
   id: string
@@ -96,7 +98,7 @@ interface Props {
   lng: number
 }
 
-export default function MonsterRequestScreen({ shopName, category }: Props) {
+export default function MonsterRequestScreen({ shopId, shopName, category, lat, lng }: Props) {
   const [menu, setMenu]       = useState('')
   const [feature, setFeature] = useState('')
   const [keyword, setKeyword] = useState('')
@@ -129,9 +131,30 @@ export default function MonsterRequestScreen({ shopName, category }: Props) {
     }
 
     setStep('nuking'); await delay(500)
-    setStep('saving'); await delay(400)
+    setStep('saving')
 
-    setMonster({ id: `monster_${Date.now()}`, name, description, attribute, rarity, imageUrl })
+    let savedId = `monster_${Date.now()}`
+    try {
+      const ref = await addDoc(collection(db, 'Monster'), {
+        shopId,
+        shopName,
+        category,
+        lat,
+        lng,
+        name,
+        description,
+        attribute,
+        rarity,
+        imageUrl,
+        status: 'approved',
+        couponTemplateId: null,
+      })
+      savedId = ref.id
+    } catch (e) {
+      console.error('Monster 저장 실패:', e)
+    }
+
+    setMonster({ id: savedId, name, description, attribute, rarity, imageUrl })
     setStep('done')
     setShowPopup(true)
   }
